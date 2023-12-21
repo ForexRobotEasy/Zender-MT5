@@ -1,0 +1,112 @@
+
+//+------------------------------------------------------------------+
+//|                                                  Zender MT5      |
+//|                                               forexroboteasy.com |
+//|                                         Developed by Forex Robot Easy Team |
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//|                        Expert initialization function                         |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+    // Attach Zender to the NZDCAD H1 chart
+    if (ChartSymbol() != 'NZDCAD' || ChartPeriod() != PERIOD_H1)
+    {
+        Print('Zender MT5 can only be attached to the NZDCAD H1 chart.');
+        return INIT_FAILED;
+    }
+    
+    // Set stop-loss level
+    double stopLoss = 50.0;
+    
+    // Set take-profit level
+    double takeProfit = 100.0;
+    
+    // Set risk-reward ratio
+    double riskRewardRatio = takeProfit / stopLoss;
+    
+    // Set position size based on capital protection
+    double accountEquity = AccountEquity();
+    double positionSize = accountEquity * 0.01; // 1% of account equity
+    
+    // Set maximum allowable risk to avoid blowing up trader accounts
+    double maxRisk = accountEquity * 0.02; // 2% of account equity
+    
+    // Set initial trade direction
+    int tradeDirection = -1; // -1 for sell, 1 for buy
+    
+    // Print Zender's settings
+    Print('Zender MT5 Settings:');
+    Print('Stop-Loss Level: ', stopLoss);
+    Print('Take-Profit Level: ', takeProfit);
+    Print('Risk-Reward Ratio: ', riskRewardRatio);
+    Print('Position Size: ', positionSize);
+    Print('Maximum Allowable Risk: ', maxRisk);
+    Print('Initial Trade Direction: ', tradeDirection == -1 ? 'Sell' : 'Buy');
+    
+    // Call necessary trading functions
+    OpenPosition(stopLoss, takeProfit, positionSize, maxRisk, tradeDirection);
+    
+    return INIT_SUCCEEDED;
+}
+
+//+------------------------------------------------------------------+
+//|                     Expert deinitialization function                         |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+    // Close any open positions before deinitialization
+    if (PositionsTotal() > 0)
+    {
+        for (int i = 0; i < PositionsTotal(); i++)
+        {
+            ulong ticket = PositionGetTicket(i);
+            OrderClose(ticket, OrderLots(), MarketInfo(OrderSymbol(), MODE_BID), 5);
+        }
+    }
+}
+
+//+------------------------------------------------------------------+
+//|              Open position based on trend line breakout               |
+//+------------------------------------------------------------------+
+void OpenPosition(const double stopLoss, const double takeProfit, const double positionSize, const double maxRisk, const int tradeDirection)
+{
+    // Calculate trend line breakout levels
+    double trendLineHigh = iHigh(NULL, PERIOD_H1, 1);
+    double trendLineLow = iLow(NULL, PERIOD_H1, 1);
+    
+    // Check if the current price has broken above the trend line for buy
+    if (tradeDirection == 1 && Ask > trendLineHigh)
+    {
+        // Calculate position volume based on maximum allowable risk
+        double positionVolume = NormalizeDouble(maxRisk / stopLoss, 2);
+        
+        // Open buy position
+        if (OrderSend(Symbol(), OP_BUY, positionVolume, Ask, 5, Ask - stopLoss, Ask + takeProfit))
+        {
+            Print('Buy position opened at ', Ask);
+        }
+        else
+        {
+            Print('Failed to open buy position. Error: ', GetLastError());
+        }
+    }
+    
+    // Check if the current price has broken below the trend line for sell
+    if (tradeDirection == -1 && Bid < trendLineLow)
+    {
+        // Calculate position volume based on maximum allowable risk
+        double positionVolume = NormalizeDouble(maxRisk / stopLoss, 2);
+        
+        // Open sell position
+        if (OrderSend(Symbol(), OP_SELL, positionVolume, Bid, 5, Bid + stopLoss, Bid - takeProfit))
+        {
+            Print('Sell position opened at ', Bid);
+        }
+        else
+        {
+            Print('Failed to open sell position. Error: ', GetLastError());
+        }
+    }
+}
